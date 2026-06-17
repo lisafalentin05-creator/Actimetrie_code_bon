@@ -56,6 +56,10 @@ float rollV[NUM_SENSORS], pitchV[NUM_SENSORS], yawV[NUM_SENSORS], motionV[NUM_SE
 float posXV[NUM_SENSORS], posYV[NUM_SENSORS], posZV[NUM_SENSORS];
 
 
+// ---------- BIAIS GYROSCOPIQUE PAR CAPTEUR ----------
+float gyroBiasX[NUM_SENSORS], gyroBiasY[NUM_SENSORS], gyroBiasZ[NUM_SENSORS];
+
+
 unsigned long microsPerReading, microsPrevious;
 
 
@@ -86,6 +90,40 @@ void selectPca(int idx) {
 }
 
 
+// ---------- CALIBRATION DU BIAIS GYRO ----------
+void calibrerBiaisGyro() {
+  const int NB_ECHANTILLONS = 300;
+  float sommeX[NUM_SENSORS] = {0};
+  float sommeY[NUM_SENSORS] = {0};
+  float sommeZ[NUM_SENSORS] = {0};
+
+  for (int iter = 0; iter < NB_ECHANTILLONS; iter++) {
+    for (int p = 0; p < NUM_PCA; p++) {
+      selectPca(p);
+      for (int i = 0; i < NUM_SENSORS; i++) {
+        if (sensorConfigs[i].pca != p || !sensorOk[i]) continue;
+        sensors_event_t a, g, temp;
+        mpus[i].getEvent(&a, &g, &temp);
+        sommeX[i] += g.gyro.x * RAD2DEG;
+        sommeY[i] += g.gyro.y * RAD2DEG;
+        sommeZ[i] += g.gyro.z * RAD2DEG;
+      }
+    }
+    allPcaOff();
+    delay(5);
+  }
+
+  for (int i = 0; i < NUM_SENSORS; i++) {
+    if (!sensorOk[i]) continue;
+    gyroBiasX[i] = sommeX[i] / NB_ECHANTILLONS;
+    gyroBiasY[i] = sommeY[i] / NB_ECHANTILLONS;
+    gyroBiasZ[i] = sommeZ[i] / NB_ECHANTILLONS;
+    Serial.printf("Biais %s : X=%.3f Y=%.3f Z=%.3f\n",
+                  sensorConfigs[i].tag, gyroBiasX[i], gyroBiasY[i], gyroBiasZ[i]);
+  }
+}
+
+
 // ---------- LECTURE D'UN CAPTEUR ----------
 void readSensor(int i) {
   if (!sensorOk[i]) return;
@@ -93,9 +131,9 @@ void readSensor(int i) {
   mpus[i].getEvent(&a, &g, &temp);
 
 
-  float gx = g.gyro.x * RAD2DEG;
-  float gy = g.gyro.y * RAD2DEG;
-  float gz = g.gyro.z * RAD2DEG;
+  float gx = g.gyro.x * RAD2DEG - gyroBiasX[i];
+  float gy = g.gyro.y * RAD2DEG - gyroBiasY[i];
+  float gz = g.gyro.z * RAD2DEG - gyroBiasZ[i];
   filters[i].updateIMU(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z);
 
 
@@ -131,7 +169,9 @@ void lireCommandes() {
       commandeBuffer.trim();
 
       if (commandeBuffer == "INIT") {
-        // Remise à zéro des filtres Madgwick et des valeurs pour chaque capteur actif
+        Serial.println("Calibration du biais gyro en cours...");
+        calibrerBiaisGyro();
+
         for (int i = 0; i < NUM_SENSORS; i++) {
           if (sensorOk[i]) {
             filters[i].begin(100);
@@ -226,15 +266,16 @@ void loop() {
     allPcaOff();
 
     // Trame étiquetée : TAG,rotX,rotY,rotZ,actim,posX,posY,posZ
+    // posY contient pitchV[i] (angle en degrés, déjà corrigé du biais gyro)
     char buf[512];
     int len = 0;
     for (int i = 0; i < NUM_SENSORS; i++) {
       len += snprintf(buf + len, sizeof(buf) - len,
-                      "%s,%.1f,%.1f,%.1f,%.2f,%.1f,%.1f,%.1f%s",
-                      sensorConfigs[i].tag,
-                      rollV[i], pitchV[i], yawV[i], motionV[i],
-                      posXV[i], posYV[i], posZV[i],
-                      (i < NUM_SENSORS - 1) ? "," : "\n");
+                "%s,%.1f,%.1f,%.1f,%.2f,%.1f,%.1f,%.1f%s",
+                sensorConfigs[i].tag,
+                rollV[i], pitchV[i], yawV[i], motionV[i],
+                posXV[i], pitchV[i], posZV[i],
+                (i < NUM_SENSORS - 1) ? "," : "\n");
     }
 
     Serial.print(buf);
