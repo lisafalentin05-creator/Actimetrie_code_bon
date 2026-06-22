@@ -57,6 +57,10 @@ class PostureView @JvmOverloads constructor(
     private var epauleDy  = 0f   // angle du capteur épaule droit
     private var teteY     = 0f   // angle du capteur tête
     private var nuqueY    = 0f   // angle du capteur nuque
+    private var epauleDRoll  = 0f   // rotX épaule droite = élévation latérale
+    private var epauleGRoll  = 0f   // rotX épaule gauche = élévation latérale
+    private var poignetDRoll = 0f
+    private var poignetGRoll = 0f
 
     // ────────────────────────────────────────────────────────────────────────
     // 1b. ANGLE DE VUE (rotation autour de l'axe Y)
@@ -88,6 +92,10 @@ class PostureView @JvmOverloads constructor(
         epauleDy  = epauleD.second
         teteY     = tete.second
         nuqueY    = nuque.second
+        epauleDRoll  = epauleD.first
+        epauleGRoll  = epauleG.first
+        poignetDRoll = poignetD.first
+        poignetGRoll = poignetG.first
         invalidate()  // redemande à Android d'appeler onDraw()
     }
 
@@ -248,7 +256,7 @@ class PostureView @JvmOverloads constructor(
     // side = -1 pour bras gauche (épaule en x=-0.28)
     private data class ArmPts(val shoulder: Pt3, val elbow: Pt3, val hand: Pt3)
 
-    private fun computeArm(elevDeg: Float, flexDeg: Float, side: Float): ArmPts {
+    private fun computeArm(elevDeg: Float, flexDeg: Float, rollDeg: Float, side: Float): ArmPts {
         val ARM_LEN  = 0.45f
         val FORE_LEN = 0.42f
         val shoulderX = side * 0.28f
@@ -260,19 +268,16 @@ class PostureView @JvmOverloads constructor(
         // Direction bras supérieur dans le plan sagittal
         // elev=0°  → bras pendant le long du corps (uy=-1, uz=0)
         // elev=90° → bras tendu vers l'avant        (uy=0,  uz=1)
+        val rR = Math.toRadians(rollDeg.toDouble()).toFloat()
         val uy = -cos(eR)
         val uz =  sin(eR)
-
-        val elbX = shoulderX            // pas de déport latéral (plan sagittal)
-        val elbY = shoulderY + uy * ARM_LEN
+        val elbX = shoulderX + sin(rR) * ARM_LEN * side
+        val elbY = shoulderY + uy * ARM_LEN * cos(rR)
         val elbZ =             uz * ARM_LEN
-
-        // Direction avant-bras (flexion soustrait l'angle d'élévation)
         val fuy = -cos(eR - fR)
-        val fuz =  sin(eR - fR)
-
-        val handX = elbX
-        val handY = elbY + fuy * FORE_LEN
+        val fuz =  sin(eR + fR)
+        val handX = elbX + sin(rR) * FORE_LEN * side
+        val handY = elbY + fuy * FORE_LEN * cos(rR)
         val handZ = elbZ + fuz * FORE_LEN
 
         return ArmPts(
@@ -312,13 +317,13 @@ class PostureView @JvmOverloads constructor(
         val elevD = -epauleDy
         val elevG = -epauleGy
         val flexD = (poignetDy - epauleDy).coerceIn(0f, 150f)
-        val flexG = (epauleGy  - poignetGy).coerceIn(0f, 150f)
+        val flexG = (epauleGy - poignetGy).coerceIn(0f, 150f)
         val headFlex = teteY.coerceIn(-45f, 60f)
         val neckFlex = nuqueY.coerceIn(-30f, 40f)
 
         // ── Géométrie des bras en 3D ──────────────────────────────────────
-        val armD = computeArm(elevD, flexD, +1f)
-        val armG = computeArm(elevG, flexG, -1f)
+        val armD = computeArm(elevD, flexD,  epauleDRoll, +1f)
+        val armG = computeArm(elevG, flexG, -epauleGRoll, -1f)
 
         // Projection des bras en 2D
         val pShD   = p(armD.shoulder); val pElbD = p(armD.elbow); val pHandD = p(armD.hand)
@@ -370,7 +375,7 @@ class PostureView @JvmOverloads constructor(
         // La valeur la plus grande = élément le plus "devant" → dessiné en dernier
         fun depth(pt: Pt3) = pt.z * cos(rad) - pt.x * sin(rad)
 
-        val armDFront = depth(armD.elbow) >= depth(armG.elbow)
+        val armDFront = depth(armD.elbow) < depth(armG.elbow)
         val legDFront = depth(kneeDPt)    >= depth(kneeGPt)
 
         // ── Calcul de la tête (centre + demi-axes de l'ellipse) ──────────
