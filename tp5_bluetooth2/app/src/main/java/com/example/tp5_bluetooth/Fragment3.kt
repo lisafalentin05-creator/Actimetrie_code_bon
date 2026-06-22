@@ -63,6 +63,11 @@ class PostureView @JvmOverloads constructor(
     private var poignetGRoll = 0f
     private var poignetDz = 0f
     private var poignetGz = 0f
+    private var biasFlexD = 0f   // offset de repos du bras droit
+    private var biasFlexG = 0f   // offset de repos du bras gauche
+    private var calibre   = false
+    private var epauleDz = 0f
+    private var epauleGz = 0f
 
     // ────────────────────────────────────────────────────────────────────────
     // 1b. ANGLE DE VUE (rotation autour de l'axe Y)
@@ -100,7 +105,16 @@ class PostureView @JvmOverloads constructor(
         poignetGRoll = poignetG.first
         poignetDz = poignetD.third
         poignetGz = poignetG.third
+        epauleDz = epauleD.third
+        epauleGz = epauleG.third
         invalidate()  // redemande à Android d'appeler onDraw()
+    }
+
+    fun calibrer() {
+        biasFlexD = poignetDy - epauleDy
+        biasFlexG = epauleGy  - poignetGy
+        calibre   = true
+        invalidate()
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -278,7 +292,7 @@ class PostureView @JvmOverloads constructor(
         val elbX = shoulderX + sin(rR) * ARM_LEN * side
         val elbY = shoulderY + uy * ARM_LEN
         val elbZ =             uz * ARM_LEN
-        val fuy = -cos(eR - fR)
+        val fuy = -cos(eR + fR)
         val fuz =  sin(eR + fR)
         val handX = elbX + sin(rR) * FORE_LEN * side
         val handY = elbY + fuy * FORE_LEN
@@ -320,15 +334,14 @@ class PostureView @JvmOverloads constructor(
         // Identiques à l'ancienne version (signes calibrés empiriquement)
         val elevD = epauleDy
         val elevG = -epauleGy
-        val blendD = abs(sin(Math.toRadians(elevD.toDouble()).toFloat()))
-        val flexD = ((1f - blendD) * (poignetDy - epauleDy) + blendD * poignetDz).coerceIn(0f, 150f)
-        val flexG = (epauleGy - poignetGy).coerceIn(0f, 150f)
+        val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f)
+        val flexG = (epauleGy - poignetGy - biasFlexG).coerceIn(0f, 150f)
         val headFlex = teteY.coerceIn(-45f, 60f)
         val neckFlex = nuqueY.coerceIn(-30f, 40f)
 
         // ── Géométrie des bras en 3D ──────────────────────────────────────
-        val armD = computeArm(elevD, flexD,  epauleDRoll, +1f)
-        val armG = computeArm(elevG, flexG, -epauleGRoll, -1f)
+        val armD = computeArm(elevD, flexD, 0f, +1f)
+        val armG = computeArm(elevG, flexG, 0f, -1f)
 
         // Projection des bras en 2D
         val pShD   = p(armD.shoulder); val pElbD = p(armD.elbow); val pHandD = p(armD.hand)
@@ -783,10 +796,10 @@ class Fragment3 : Fragment() {
                 val tok = tokens[i].trim()
                 val capteurIndex = prefixToIndex[tok]
                 if (capteurIndex != null && i + 7 <= tokens.size) {
-                    val posX = tokens[i + 5].trim().toFloatOrNull() ?: 0f
-                    val posY = tokens[i + 6].trim().toFloatOrNull() ?: 0f
-                    val posZ = tokens[i + 7].trim().toFloatOrNull() ?: 0f
-                    dernieresPositions[capteurIndex] = Triple(posX, posY, posZ)
+                    val rotX = tokens[i + 1].trim().toFloatOrNull() ?: 0f
+                    val rotY = tokens[i + 2].trim().toFloatOrNull() ?: 0f
+                    val rotZ = tokens[i + 3].trim().toFloatOrNull() ?: 0f
+                    dernieresPositions[capteurIndex] = Triple(rotX, rotY, rotZ)
                     capteursTrouves++
                     i += 8   // saute le préfixe + les 7 valeurs de ce capteur
                 } else {
@@ -826,6 +839,9 @@ class Fragment3 : Fragment() {
         vue.findViewById<Button>(R.id.btnPage3).setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, Fragment3()).commit()
+        }
+        vue.findViewById<Button>(R.id.btnCalibrer).setOnClickListener {
+            postureView.calibrer()
         }
 
         return vue
