@@ -61,6 +61,8 @@ class PostureView @JvmOverloads constructor(
     private var epauleGRoll  = 0f   // rotX épaule gauche = élévation latérale
     private var poignetDRoll = 0f
     private var poignetGRoll = 0f
+    private var poignetDz = 0f
+    private var poignetGz = 0f
 
     // ────────────────────────────────────────────────────────────────────────
     // 1b. ANGLE DE VUE (rotation autour de l'axe Y)
@@ -96,6 +98,8 @@ class PostureView @JvmOverloads constructor(
         epauleGRoll  = epauleG.first
         poignetDRoll = poignetD.first
         poignetGRoll = poignetG.first
+        poignetDz = poignetD.third
+        poignetGz = poignetG.third
         invalidate()  // redemande à Android d'appeler onDraw()
     }
 
@@ -257,8 +261,8 @@ class PostureView @JvmOverloads constructor(
     private data class ArmPts(val shoulder: Pt3, val elbow: Pt3, val hand: Pt3)
 
     private fun computeArm(elevDeg: Float, flexDeg: Float, rollDeg: Float, side: Float): ArmPts {
-        val ARM_LEN  = 0.45f
-        val FORE_LEN = 0.42f
+        val ARM_LEN  = 0.33f
+        val FORE_LEN = 0.30f
         val shoulderX = side * 0.28f
         val shoulderY = 0.52f
 
@@ -272,12 +276,12 @@ class PostureView @JvmOverloads constructor(
         val uy = -cos(eR)
         val uz =  sin(eR)
         val elbX = shoulderX + sin(rR) * ARM_LEN * side
-        val elbY = shoulderY + uy * ARM_LEN * cos(rR)
+        val elbY = shoulderY + uy * ARM_LEN
         val elbZ =             uz * ARM_LEN
         val fuy = -cos(eR - fR)
         val fuz =  sin(eR + fR)
         val handX = elbX + sin(rR) * FORE_LEN * side
-        val handY = elbY + fuy * FORE_LEN * cos(rR)
+        val handY = elbY + fuy * FORE_LEN
         val handZ = elbZ + fuz * FORE_LEN
 
         return ArmPts(
@@ -314,9 +318,10 @@ class PostureView @JvmOverloads constructor(
 
         // ── Angles capteurs → angles d'animation ─────────────────────────
         // Identiques à l'ancienne version (signes calibrés empiriquement)
-        val elevD = -epauleDy
+        val elevD = epauleDy
         val elevG = -epauleGy
-        val flexD = (poignetDy - epauleDy).coerceIn(0f, 150f)
+        val blendD = abs(sin(Math.toRadians(elevD.toDouble()).toFloat()))
+        val flexD = ((1f - blendD) * (poignetDy - epauleDy) + blendD * poignetDz).coerceIn(0f, 150f)
         val flexG = (epauleGy - poignetGy).coerceIn(0f, 150f)
         val headFlex = teteY.coerceIn(-45f, 60f)
         val neckFlex = nuqueY.coerceIn(-30f, 40f)
