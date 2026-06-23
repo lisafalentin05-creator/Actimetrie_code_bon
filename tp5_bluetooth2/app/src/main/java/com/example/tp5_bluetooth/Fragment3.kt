@@ -70,6 +70,8 @@ class PostureView @JvmOverloads constructor(
     private var epauleGz = 0f
     private var elevGMax = 0f
     private var elevDMax = 0f
+    //private var biasTete = 0f
+    private var premiereTrameRecue = false
 
     // ────────────────────────────────────────────────────────────────────────
     // 1b. ANGLE DE VUE (rotation autour de l'axe Y)
@@ -99,7 +101,7 @@ class PostureView @JvmOverloads constructor(
         epauleGy  = epauleG.second
         poignetDy = poignetD.second
         epauleDy  = epauleD.second
-        teteY     = tete.second
+        teteY     = tete.first
         nuqueY    = nuque.second
         epauleDRoll  = epauleD.first
         epauleGRoll  = epauleG.first
@@ -109,13 +111,25 @@ class PostureView @JvmOverloads constructor(
         poignetGz = poignetG.third
         epauleDz = epauleD.third
         epauleGz = epauleG.third
+
+        if (!premiereTrameRecue) {
+            biasTete = teteY
+            premiereTrameRecue = true
+        }
+
         invalidate()  // redemande à Android d'appeler onDraw()
     }
+
+    private var biasTete = 0f
+    private var biasNuque = 0f
 
     fun calibrer() {
         biasFlexD = poignetDy - epauleDy
         biasFlexG = epauleGy  - poignetGy
+        biasTete  = teteY
+        biasNuque = nuqueY
         calibre   = true
+        android.util.Log.d("CALIBRATION", "teteY=$teteY biasTete=$biasTete nuqueY=$nuqueY biasNuque=$biasNuque")
         invalidate()
     }
 
@@ -341,8 +355,8 @@ class PostureView @JvmOverloads constructor(
         val elevG = elevGMax.coerceIn(-90f, 88f)
         val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f) * (1f - elevD.coerceIn(0f, 88f) / 88f)
         val flexG = (epauleGy - poignetGy - biasFlexG).coerceIn(0f, 150f)
-        val headFlex = teteY.coerceIn(-45f, 60f)
-        val neckFlex = nuqueY.coerceIn(-30f, 40f)
+        val headFlex = (teteY - biasTete).coerceIn(-45f, 60f)
+        val neckFlex = (nuqueY - biasNuque).coerceIn(-30f, 40f)
 
         // ── Géométrie des bras en 3D ──────────────────────────────────────
         val armD = computeArm(elevD, flexD, 0f, +1f)
@@ -625,9 +639,9 @@ class PostureView @JvmOverloads constructor(
         // 8. PANNEAU D'INFO NUMÉRIQUE (encadré élévation / flexion)
         // ════════════════════════════════════════════════════════════════════
         val infoX = w * 0.02f
-        val infoY = h * 0.68f
+        val infoY = h * 0.53f
         val infoW = w * 0.22f
-        val infoH = h * 0.28f
+        val infoH = h * 0.42f
         canvas.drawRoundRect(RectF(infoX, infoY, infoX + infoW, infoY + infoH), 10f, 10f, paintInfo)
 
         paintLabel.textSize = h * 0.018f
@@ -641,6 +655,8 @@ class PostureView @JvmOverloads constructor(
         drawInfoLine("flex. D", "%.0f°".format(flexD), Color.parseColor("#69FF47"), h * 0.098f)
         drawInfoLine("élév. G", "%.0f°".format(elevG), Color.parseColor("#FFBB33"), h * 0.168f)
         drawInfoLine("flex. G", "%.0f°".format(flexG), Color.parseColor("#FF6B6B"), h * 0.238f)
+        drawInfoLine("tête", "%.0f°".format(teteY - biasTete),  Color.parseColor("#D070FF"), h * 0.308f)
+        drawInfoLine("dos",  "%.0f°".format(nuqueY - biasNuque), Color.parseColor("#FF70C0"), h * 0.378f)
 
         // ════════════════════════════════════════════════════════════════════
         // 9. BOUSSOLE D'ANGLE DE VUE (petit indicateur en bas à droite)
