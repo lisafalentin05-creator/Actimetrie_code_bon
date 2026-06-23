@@ -204,9 +204,12 @@ void lireCommandes() {
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);
-  Serial.println("\n--- DEMARRAGE 6 CAPTEURS ---");
+  delay(3000);
 
+  while (!Serial) { delay(10); }
+
+  Serial.println("\n--- DEMARRAGE 6 CAPTEURS ---");
+  Serial.println("Setup commence...");
 
   for (int i = 0; i < NUM_PCA; i++) pinMode(pcaEnablePins[i], OUTPUT);
   allPcaOff();
@@ -239,7 +242,7 @@ void setup() {
   Serial.printf("sensorOk: PG=%d EG=%d PD=%d ED=%d TE=%d NU=%d\n",
     sensorOk[0], sensorOk[1], sensorOk[2], 
     sensorOk[3], sensorOk[4], sensorOk[5]);
-    
+
   allPcaOff();
 
 
