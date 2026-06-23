@@ -235,6 +235,11 @@ void setup() {
       }
     }
   }
+
+  Serial.printf("sensorOk: PG=%d EG=%d PD=%d ED=%d TE=%d NU=%d\n",
+    sensorOk[0], sensorOk[1], sensorOk[2], 
+    sensorOk[3], sensorOk[4], sensorOk[5]);
+    
   allPcaOff();
 
 

@@ -68,6 +68,8 @@ class PostureView @JvmOverloads constructor(
     private var calibre   = false
     private var epauleDz = 0f
     private var epauleGz = 0f
+    private var elevGMax = 0f
+    private var elevDMax = 0f
 
     // ────────────────────────────────────────────────────────────────────────
     // 1b. ANGLE DE VUE (rotation autour de l'axe Y)
@@ -333,8 +335,11 @@ class PostureView @JvmOverloads constructor(
         // ── Angles capteurs → angles d'animation ─────────────────────────
         // Identiques à l'ancienne version (signes calibrés empiriquement)
         val elevD = epauleDy
-        val elevG = -epauleGy
-        val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f)
+        val elevGRaw = -epauleGy
+        if (elevGRaw < elevGMax - 15f) elevGMax = elevGRaw
+        else if (elevGRaw > elevGMax) elevGMax = elevGRaw
+        val elevG = elevGMax.coerceIn(-90f, 88f)
+        val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f) * (1f - elevD.coerceIn(0f, 88f) / 88f)
         val flexG = (epauleGy - poignetGy - biasFlexG).coerceIn(0f, 150f)
         val headFlex = teteY.coerceIn(-45f, 60f)
         val neckFlex = nuqueY.coerceIn(-30f, 40f)
@@ -556,7 +561,7 @@ class PostureView @JvmOverloads constructor(
         val sensorRadius  = sc * 0.065f
         val labelSize     = h * 0.026f
         paintSensorLabel.textSize = labelSize
-        val labelX        = w * 0.76f         // colonne où s'alignent toutes les étiquettes
+        val labelX        = w * 0.68f         // colonne où s'alignent toutes les étiquettes
         val minLabelSpacing = labelSize + 10f  // espacement minimal vertical entre 2 étiquettes
 
         // --- 7.1 Anti-collision des étiquettes ---
