@@ -175,6 +175,7 @@ void lireCommandes() {
         for (int i = 0; i < NUM_SENSORS; i++) {
           if (sensorOk[i]) {
             filters[i].begin(100);
+            filters[i].beta = 1.0f;
             rollV[i]  = 0;
             pitchV[i] = 0;
             yawV[i]   = 0;
