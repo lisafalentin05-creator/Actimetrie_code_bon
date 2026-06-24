@@ -117,6 +117,11 @@ class PostureView @JvmOverloads constructor(
             premiereTrameRecue = true
         }
 
+        android.util.Log.d("RAW_D",
+            "PD rotX=${"%.1f".format(poignetD.first)} rotY=${"%.1f".format(poignetD.second)} rotZ=${"%.1f".format(poignetD.third)} | " +
+                    "ED rotX=${"%.1f".format(epauleD.first)} rotY=${"%.1f".format(epauleD.second)} rotZ=${"%.1f".format(epauleD.third)}"
+        )
+
         invalidate()  // redemande à Android d'appeler onDraw()
     }
 
@@ -124,7 +129,7 @@ class PostureView @JvmOverloads constructor(
     private var biasNuque = 0f
 
     fun calibrer() {
-        biasFlexD = poignetDy - epauleDy
+        biasFlexD = poignetDRoll - epauleDRoll
         biasFlexG = epauleGy  - poignetGy
         biasTete  = teteY
         biasNuque = nuqueY
@@ -353,7 +358,7 @@ class PostureView @JvmOverloads constructor(
         if (elevGRaw < elevGMax - 15f) elevGMax = elevGRaw
         else if (elevGRaw > elevGMax) elevGMax = elevGRaw
         val elevG = elevGMax.coerceIn(-90f, 88f)
-        val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f) * (1f - elevD.coerceIn(0f, 88f) / 88f)
+        val flexD = (poignetDy - epauleDy - biasFlexD).coerceIn(0f, 150f)
         val flexG = (epauleGy - poignetGy - biasFlexG).coerceIn(0f, 150f)
         val headFlex = 0f
         val neckFlex = 0f
