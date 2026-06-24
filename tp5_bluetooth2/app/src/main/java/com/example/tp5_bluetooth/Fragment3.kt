@@ -355,8 +355,8 @@ class PostureView @JvmOverloads constructor(
         val elevG = elevGMax.coerceIn(-90f, 88f)
         val flexD = (poignetDRoll - epauleDRoll).coerceIn(0f, 150f) * (1f - elevD.coerceIn(0f, 88f) / 88f)
         val flexG = (epauleGy - poignetGy - biasFlexG).coerceIn(0f, 150f)
-        val headFlex = (teteY - biasTete).coerceIn(-45f, 60f)
-        val neckFlex = (nuqueY - biasNuque).coerceIn(-30f, 40f)
+        val headFlex = 0f
+        val neckFlex = 0f
 
         // ── Géométrie des bras en 3D ──────────────────────────────────────
         val armD = computeArm(elevD, flexD, 0f, +1f)
